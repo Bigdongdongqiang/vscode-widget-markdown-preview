@@ -1,5 +1,5 @@
 {
-  "name": "markdown-live-preview",
+  "name": "vscode-widget-markdown-preview",
   "displayName": "Markdown 实时预览",
   "description": "左侧编辑、右侧实时预览 Markdown。",
   "version": "0.1.0",
