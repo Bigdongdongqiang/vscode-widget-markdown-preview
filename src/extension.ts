@@ -181,6 +181,10 @@ class MarkdownLivePreviewPanel {
     .markdown-body code { background: var(--vscode-textBlockQuote-background); }
     .markdown-body pre { background: var(--vscode-textBlockQuote-background); }
     .markdown-body a { color: var(--vscode-textLink-foreground); }
+    .markdown-body table { border-collapse: collapse; width: 100%; margin: 1em 0; display: block; overflow: auto; }
+    .markdown-body table th, .markdown-body table td { border: 1px solid #ddd; padding: 6px 13px; }
+    .markdown-body table th { font-weight: 600; background: #f6f8fa; }
+    .markdown-body table tr:nth-child(even) { background: #f9f9f9; }
     #content { min-height: 200px; }
   </style>
 </head>

@@ -2,8 +2,25 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
+const fs = require("fs");
+const path = require("path");
 const vscode = require("vscode");
 const VIEW_TYPE = 'markdownLivePreview';
+/** 读取本地的 marked.min.js 并转义后用于内联，失败返回 null */
+function getMarkedInline(extensionUri) {
+    try {
+        const filePath = path.join(extensionUri.fsPath, 'media', 'marked.min.js');
+        const code = fs.readFileSync(filePath, 'utf8');
+        return code
+            .replace(/<\/script>/gi, '<\\/script>')
+            .replace(/\\/g, '\\\\')
+            .replace(/`/g, '\\`')
+            .replace(/\$\{/g, '\\${');
+    }
+    catch {
+        return null;
+    }
+}
 /** 把焦点放到左侧编辑组，这样从资源管理器打开的文件会开在左侧 */
 function focusLeftGroup() {
     setTimeout(() => {
@@ -106,14 +123,17 @@ class MarkdownLivePreviewPanel {
     }
     _getHtmlForWebview(webview, extensionUri) {
         const nonce = getNonce();
+        const markedInline = getMarkedInline(extensionUri);
+        const markedScriptTag = markedInline !== null
+            ? `<script nonce="${nonce}">${markedInline}</script>`
+            : '';
         return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'unsafe-inline' https://cdn.jsdelivr.net; font-src https://cdn.jsdelivr.net;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src 'none';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Markdown 预览</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown.min.css">
   <style>
     body {
       box-sizing: border-box;
@@ -134,12 +154,16 @@ class MarkdownLivePreviewPanel {
     .markdown-body code { background: var(--vscode-textBlockQuote-background); }
     .markdown-body pre { background: var(--vscode-textBlockQuote-background); }
     .markdown-body a { color: var(--vscode-textLink-foreground); }
+    .markdown-body table { border-collapse: collapse; width: 100%; margin: 1em 0; display: block; overflow: auto; }
+    .markdown-body table th, .markdown-body table td { border: 1px solid #ddd; padding: 6px 13px; }
+    .markdown-body table th { font-weight: 600; background: #f6f8fa; }
+    .markdown-body table tr:nth-child(even) { background: #f9f9f9; }
     #content { min-height: 200px; }
   </style>
 </head>
 <body>
   <div id="content" class="markdown-body"></div>
-  <script nonce="${nonce}" src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  ${markedScriptTag}
   <script nonce="${nonce}">
     (function() {
       const content = document.getElementById('content');
@@ -150,7 +174,7 @@ class MarkdownLivePreviewPanel {
         if (typeof marked !== 'undefined') {
           content.innerHTML = marked.parse(md || '');
         } else {
-          content.textContent = md || '(Markdown 引擎加载中…)';
+          content.textContent = md || '(缺少 media/marked.min.js，请执行 npm run copy-assets 后重新安装扩展)';
         }
       }
       window.addEventListener('message', function(event) {
