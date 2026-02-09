@@ -2,25 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
-const fs = require("fs");
-const path = require("path");
 const vscode = require("vscode");
 const VIEW_TYPE = 'markdownLivePreview';
-/** 读取本地的 marked.min.js 并转义后用于内联，失败返回 null */
-function getMarkedInline(extensionUri) {
-    try {
-        const filePath = path.join(extensionUri.fsPath, 'media', 'marked.min.js');
-        const code = fs.readFileSync(filePath, 'utf8');
-        return code
-            .replace(/<\/script>/gi, '<\\/script>')
-            .replace(/\\/g, '\\\\')
-            .replace(/`/g, '\\`')
-            .replace(/\$\{/g, '\\${');
-    }
-    catch {
-        return null;
-    }
-}
 /** 把焦点放到左侧编辑组，这样从资源管理器打开的文件会开在左侧 */
 function focusLeftGroup() {
     setTimeout(() => {
@@ -121,17 +104,13 @@ class MarkdownLivePreviewPanel {
             content: this._document.getText()
         });
     }
-    _getHtmlForWebview(webview, extensionUri) {
+    _getHtmlForWebview(webview, _extensionUri) {
         const nonce = getNonce();
-        const markedInline = getMarkedInline(extensionUri);
-        const markedScriptTag = markedInline !== null
-            ? `<script nonce="${nonce}">${markedInline}</script>`
-            : '';
         return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'unsafe-inline'; font-src 'none';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Markdown 预览</title>
   <style>
@@ -140,8 +119,8 @@ class MarkdownLivePreviewPanel {
       min-height: 100vh;
       padding: 16px 24px;
       margin: 0;
-      font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
-      font-size: var(--vscode-font-size, 14px);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
       line-height: 1.6;
       color: #333;
       background-color: #fff;
@@ -150,10 +129,16 @@ class MarkdownLivePreviewPanel {
       background-color: #fff !important;
       color: #333 !important;
     }
-    .markdown-body h1, .markdown-body h2, .markdown-body h3 { border-color: var(--vscode-editorWidget-border); }
-    .markdown-body code { background: var(--vscode-textBlockQuote-background); }
-    .markdown-body pre { background: var(--vscode-textBlockQuote-background); }
-    .markdown-body a { color: var(--vscode-textLink-foreground); }
+    .markdown-body h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; margin: 0.67em 0; }
+    .markdown-body h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; margin: 0.75em 0; }
+    .markdown-body h3 { font-size: 1.25em; margin: 0.83em 0; }
+    .markdown-body code { background: #f0f0f0; padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.9em; }
+    .markdown-body pre { background: #f6f8fa; padding: 12px 16px; border-radius: 6px; overflow: auto; border: 1px solid #e1e4e8; }
+    .markdown-body pre code { background: none; padding: 0; }
+    .markdown-body a { color: #0969da; }
+    .markdown-body blockquote { border-left: 4px solid #dfe2e5; margin: 0 0 16px; padding: 0 16px; color: #57606a; }
+    .markdown-body ul, .markdown-body ol { padding-left: 2em; margin: 0 0 16px; }
+    .markdown-body hr { border: none; border-top: 1px solid #eaecef; margin: 24px 0; }
     .markdown-body table { border-collapse: collapse; width: 100%; margin: 1em 0; display: block; overflow: auto; }
     .markdown-body table th, .markdown-body table td { border: 1px solid #ddd; padding: 6px 13px; }
     .markdown-body table th { font-weight: 600; background: #f6f8fa; }
@@ -163,7 +148,7 @@ class MarkdownLivePreviewPanel {
 </head>
 <body>
   <div id="content" class="markdown-body"></div>
-  ${markedScriptTag}
+  <script nonce="${nonce}" src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script nonce="${nonce}">
     (function() {
       const content = document.getElementById('content');
@@ -174,7 +159,7 @@ class MarkdownLivePreviewPanel {
         if (typeof marked !== 'undefined') {
           content.innerHTML = marked.parse(md || '');
         } else {
-          content.textContent = md || '(缺少 media/marked.min.js，请执行 npm run copy-assets 后重新安装扩展)';
+          content.textContent = md || '(Markdown 引擎加载中…)';
         }
       }
       window.addEventListener('message', function(event) {
